@@ -1,17 +1,40 @@
-const $ = require('jquery');
+import '../css/custom/charlist.css';
+import '../css/custom/list1.css';
+import '../css/custom/list2.css';
+import '../css/custom/list3.css';
+import '../css/custom/list4.css';
+import '../css/custom/print.css';
 
-window.$ = $;
-window.jQuery = $;
-require('bootstrap');
+import 'charsheet-dots';
 
-require('./images');
-require('./jquery.barrating');
-require('./init');
+import '../../node_modules/x-editable/dist/bootstrap3-editable/css/bootstrap-editable.css';
+import '../../node_modules/x-editable/src/inputs/datetime/bootstrap-datetimepicker/css/datetimepicker.css';
+import '../../node_modules/x-editable/src/inputs/select2/lib/select2-bootstrap.css';
+import '../../node_modules/x-editable/dist/inputs-ext/typeaheadjs/lib/typeahead.js-bootstrap.css';
+
+import '../../node_modules/bootstrap/dist/css/bootstrap.css';
+import '../../node_modules/bootstrap/dist/css/bootstrap-theme.css';
+
+import '../../node_modules/select2/dist/css/select2.css';
 
 
-require('./x-editable/bootstrap-datetimepicker');
-require('./x-editable/bootstrap-editable');
-require('./x-editable/jquery-ui-1.10.3.custom');
-require('moment');
-require('./x-editable/select2');
-require('./x-editable/typeahead');
+import LazyLoad from 'vanilla-lazyload';
+
+import 'jquery';
+import 'bootstrap';
+import './images';
+import 'jquery-bar-rating';
+import './init';
+
+
+import 'x-editable/src/inputs/datetime/bootstrap-datetimepicker/js/bootstrap-datetimepicker';
+import 'x-editable/dist/bootstrap3-editable/js/bootstrap-editable';
+
+import 'jquery-ui';
+import 'moment';
+import 'select2';
+import 'typeahead.js';
+
+const myLazyLoad = new LazyLoad({
+  elements_selector: '.lazy',
+});

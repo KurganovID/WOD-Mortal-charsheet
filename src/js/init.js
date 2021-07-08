@@ -1,44 +1,53 @@
-const Promise        = require('bluebird'),
-      $              = require('jquery'),
-      sheetData      = require('../../data/index'),
-      requestPromise = require('request-promise'),
-      viewModes      = {edit: 0};
-/**
- * check if script is running from development environment
- * @return {boolean}
- */
-function checkDevel() {
-  return (window.location.href.indexOf('charsheet.su/') === -1);
+import * as Promise from 'bluebird';
+import * as requestPromise from 'request-promise';
+import * as sheetData from 'wod-data-human';
+import $ from 'jquery';
+import mockData from '../../data/mock.json';
+
+window.jQuery = $;
+window.$ = $;
+
+const isDevel = (window.location.href.indexOf('charsheet.su/') === -1);
+const isRevision = (window.location.pathname.split('/').length === 6);
+const viewModes = {edit: 0};
+
+function barratingValidator(value) {
+
+  if (isDevel) {
+    return null;// nothing to do for local development
+  }
+
+  if (isRevision) {
+    return 'You can not edit revision data! If you want it - restore revision and edit it.';
+  }
+  return null;
 }
 
-// if (typeof ifRevision === 'undefined') {
-const ifRevision = ()=> {
-  const pathname = window.location.pathname;
-  const path = pathname.split('/');
-  return (path.length === 6);
-};
-// }
+function capitalizeFirstLetter(string) {
+  return string.charAt(0).toUpperCase() + string.slice(1);
+}
 
 /**
  * just a little something to show while loading
  * @type {{show, hide}}
  */
 const loadingPannel = (function loadingPannel() {
-  const lpDialog = $('' +
-    "<div class='modal' id='lpDialog' data-backdrop='static' data-keyboard='false'>" +
-    "<div class='modal-dialog' >" +
-    "<div class='modal-content'>" +
-    "<div class='modal-header'><b>Loading...</b></div>" +
-    "<div class='modal-body'>" +
-    "<div class='progress'>" +
-    "<div class='progress-bar progress-bar-striped active' role='progressbar' aria-valuenow='100' aria-valuemin='100' aria-valuemax='100' style='width:100%'> " +
-    'Please Wait...' +
-    '</div>' +
-    '</div>' +
-    '</div>' +
-    '</div>' +
-    '</div>' +
-    '</div>');
+  const lpDialog = $(`
+    <div class='modal' id='lpDialog' data-backdrop='static' data-keyboard='false'>
+    <div class='modal-dialog' >
+    <div class='modal-content'>
+    <div class='modal-header'><b>Loading...</b></div>
+    <div class='modal-body'>
+    <div class='progress'>
+    <div class='progress-bar progress-bar-striped active' role='progressbar'
+     aria-valuenow='100' aria-valuemin='100' aria-valuemax='100' style='width:100%'>
+    Please Wait...
+    </div>
+    </div>
+    </div>
+    </div>
+    </div>
+    </div>`);
   return {
     show() {
       lpDialog.modal('show');
@@ -54,22 +63,21 @@ const loadingPannel = (function loadingPannel() {
  * @type {{show, hide}}
  */
 const ErrorPannel = (function ErrorPannel() {
-  const lpDialog = $('' +
-    "<div class='modal' id='lpDialog' data-backdrop='static' data-keyboard='false'>" +
-    "<div class='modal-dialog' >" +
-    "<div class='modal-content'>" +
-    "<div class='modal-header'><b>Error!</b></div>" +
-    "<div class='modal-body'>" +
-    "<div class='alert alert-danger' role='alert'> " +
-    'Some error text' +
-    '</div>' +
-    "<div class='modal-footer'>" +
-    "<button type='button' class='btn btn-default' data-dismiss='modal'>Close</button>" +
-    '</div>' +
-    '</div>' +
-    '</div>' +
-    '</div>' +
-    '</div>');
+  const lpDialog = $(`<div class='modal' id='lpDialog' data-backdrop='static' data-keyboard='false'>
+    <div class='modal-dialog' >
+    <div class='modal-content'>
+    <div class='modal-header'><b>Error!</b></div>
+    <div class='modal-body'>
+    <div class='alert alert-danger' role='alert'>
+    Some error text
+    </div>
+    <div class='modal-footer'>
+    <button type='button' class='btn btn-default' data-dismiss='modal'>Close</button>
+    </div>
+    </div>
+    </div>
+    </div>
+    </div>`);
   return {
     show(error) {
 
@@ -87,62 +95,36 @@ function sendDots(attr, value) {
   // var data = {};
   // attr=attr.replace('[','%5B').replace(']','%5D');
   // data[attr] = value;
-  if (checkDevel()) {
+  if (isDevel) {
     console.log(`Saving ${attr} = ${value}`);
     return;
   }
-  if (ifRevision()) {
+  if (isRevision) {
     ErrorPannel.show('You can not edit revision data! If you want it - restore revision and edit it.');
     return;
   }
-  /*
-   const formData = new FormData();
-   formData.append('name', attr);
-   formData.append('value', value);
-   $.ajax({
-   url: '/api/save/',
-   formData,
-   contentType: false,
-   processData: false,
-   type: 'POST',
-   success(data) {
-   console.info(data);
-   if (data.error !== undefined) {
-   ErrorPannel.show(data.error);
-
-   }
-   },
-   error(data) {
-   alert(`Error saving ${attr}!`);
-   },
-   });*/
   const options = {
     method: 'POST',
-    uri: `${location.protocol}//${window.location.hostname}/api/save/`,
+    uri: `${window.location.protocol}//${window.location.hostname}/api/save/`,
     form: {
       name: attr, value,
     },
     json: true,
-    headers: {
-      /* 'content-type': 'application/x-www-form-urlencoded' */ // Set automatically
-    },
+    headers: {},
   };
 
   requestPromise(options)
     .then((data)=> {
-
       if (data.error !== undefined) {
-        ErrorPannel.show(data.error);
-
+        ErrorPannel.show(`Error sending dots: ${data.error}`);
       }
       // POST succeeded...
     })
     .catch((err)=> {
-      ErrorPannel.show(JSON.stringify(err));
+      ErrorPannel.show(`Error sending dots: ${JSON.stringify(err)}`);
       // POST failed...
     });
 }
-window.sendDots = sendDots;
 
 function createDots(mainContainer, name, elClass, caption, points) {
   elClass = elClass || 'attr';
@@ -163,8 +145,12 @@ function createDots(mainContainer, name, elClass, caption, points) {
   div2.append(select);
 
   div2.find('select').barrating('show', {
-    wrapperClass: 'br-wrapper-f',
+    theme: 'wod-dots',
     showSelectedRating: false,
+    allowEmpty: true,
+    deselectable: true,
+    silent: true,
+    validate: barratingValidator,
     onSelect(value, text) {
       sendDots(name, value);
     },
@@ -180,7 +166,6 @@ function setData(list, elClass, mainContainer) {
       $(mainContainer).append(createDots($(mainContainer), list[i][n], elClass, list[i][n]));
     }
   }
-  return Promise.resolve();
 }
 
 // load data with editable name
@@ -204,12 +189,12 @@ function loadProps(json, title, field, container, dots) {
     $(container).append(div2);
     createDots($(container), `${field}_value[${i}]`, field, undefined, dots);
   }
-  return Promise.resolve();
 }
 
 
 function setTraits(secondary) {
   const sp = $('<span></span>');
+  const otherTraits = $('.other_traits');
   sp.attr('data-title', 'Select trait')
     .attr('data-type', 'select')
     .attr('data-pk', '1')
@@ -224,10 +209,9 @@ function setTraits(secondary) {
     div2.find('span')
       .attr('data-name', `trait_name[${i}]`)
       .editable({source: secondary});
-    $('.other_traits').append(div2);
-    createDots($('.other_traits'), `trait_value[${i}]`, 'trait');
+    otherTraits.append(div2);
+    createDots(otherTraits, `trait_value[${i}]`, 'trait');
   }
-  return Promise.resolve();
 }
 
 function loadCustomProps() {
@@ -251,7 +235,6 @@ function loadCustomProps() {
     createDots(div0, `custom_prop_value[${i}]`, 'custom_prop', undefined, 7);
     $('.custom_props').append(div0);
   }
-  return Promise.resolve();
 }
 
 function loadTraits() {
@@ -259,13 +242,15 @@ function loadTraits() {
     sheetData.secondary.skills,
     sheetData.secondary.knowledges];
   const res = [];
-  $.each(list, (index, items) => {
+  list.forEach((items)=> {
+    // $.each(list, (index, items) => {
     res.push({text: '---'});
-    $.each(items, (i, item) => { // only take item index. could be a simple loop
+    // $.each(items, (i, item) => { // only take item index. could be a simple loop
+    items.forEach((item)=> {
       res.push({text: item, value: item});
     });
   });
-  return setTraits(res);
+  setTraits(res);
 }
 
 
@@ -273,8 +258,12 @@ function loadTraits() {
 function setDotsFields() {
 
   $('select[name="Humanity"]').barrating('show', {
-    wrapperClass: 'br-wrapper-f',
-    showSelectedRating: false,
+    theme: 'wod-dots',
+    silent: true,
+    allowEmpty: true,
+    validate: barratingValidator,
+    deselectable: true,
+    showSelectedRating: false, // append a div with a rating to the widget?
     onSelect(value, text) {
       sendDots('Humanity', value);
     },
@@ -282,16 +271,24 @@ function setDotsFields() {
 
 
   $('select[name="Willpower"]').barrating('show', {
-    wrapperClass: 'br-wrapper-f',
-    showSelectedRating: false,
+    theme: 'wod-dots',
+    silent: true,
+    allowEmpty: true,
+    validate: barratingValidator,
+    deselectable: true,
+    showSelectedRating: false, // append a div with a rating to the widget?
     onSelect(value, text) {
       sendDots('Willpower', value);
     },
   });
 
   $('select[name="Willpower_current"]').barrating('show', {
-    wrapperClass: 'br-wrapper-f2',
-    showSelectedRating: false,
+    theme: 'wod-checkbox',
+    silent: true,
+    allowEmpty: true,
+    validate: barratingValidator,
+    deselectable: true,
+    showSelectedRating: false, // append a div with a rating to the widget?
     selectedImage: 'img/checkbox_big_1.png',
     unSelectedImage: 'img/checkbox_big_0.png',
     onSelect(value, text) {
@@ -302,7 +299,7 @@ function setDotsFields() {
 
 function setEditableFields() {
   // defaults
-  if (checkDevel()) { // just display message about saving
+  if (isDevel) { // just display message about saving
     $.fn.editable.defaults.success = function (response, newValue) {
       console.log(`Saving ${$(this).attr('data-name')} = ${newValue}`);
     };
@@ -311,23 +308,11 @@ function setEditableFields() {
     $.fn.editable.defaults.mode = 'popup';
     $.fn.editable.defaults.success = function (response, newValue) {
       if (response.error !== undefined) {
-        ErrorPannel.show(response.error);
+        ErrorPannel.show(`Error saving data: ${response.error}`);
       }
       return response;
     };
   }
-
-  $.fn.editable.defaults.validate = (value)=> {
-
-    if (checkDevel()) {
-      return null;// nothing to do for local development
-    }
-
-    if (ifRevision()) {
-      return 'You can not edit revision data! If you want it - restore revision and edit it.';
-    }
-    return null;
-  };
 
   $('span[data-name="experience"]').editable({
     emptytext: '&nbsp;',
@@ -374,8 +359,8 @@ function setEditableFields() {
     for (let x = 0; x < 4; x++) {
       const tr = $('<tr></tr>');
       for (let y = 0; y < 7; y++) {
-        const span = $(`<span data-name="combat[${x}][${y}]"  data-emptyclass=""` +
-          ' data-type="text" data-pk="1" data-emptytext="None" data-title="Enter"></span>');
+        const span = $(`<span data-name="combat[${x}][${y}]"  data-emptyclass=""`
+          + ' data-type="text" data-pk="1" data-emptytext="None" data-title="Enter"></span>');
         const td = $('<td>&nbsp;</td>');
         span.editable();
         td.append(span);
@@ -390,8 +375,8 @@ function setEditableFields() {
     for (let x = 0; x < 2; x++) {
       const tr = $('<tr></tr>');
       for (let y = 0; y < 7; y++) {
-        const span = $(`<span data-name="armor[${x}][${y}]"  data-emptyclass=""` +
-          ' data-type="text" data-pk="1" data-emptytext="None" data-title="Enter"></span>');
+        const span = $(`<span data-name="armor[${x}][${y}]"  data-emptyclass=""`
+          + ' data-type="text" data-pk="1" data-emptytext="None" data-title="Enter"></span>');
         const td = $('<td>&nbsp;</td>');
         span.editable();
         td.append(span);
@@ -402,65 +387,78 @@ function setEditableFields() {
   }());
 }
 
-function loadSaved() {
-  if (checkDevel()) {
+function fetchSavedData() {
+
+  if (isDevel) {
     // do not load for development environment
-    return Promise.resolve();
+    return Promise.resolve(mockData);
   }
   const options = {
-    uri: `${location.protocol}//${window.location.hostname}/api/load`,
+    uri: `${window.location.protocol}//${window.location.hostname}/api/load`,
     json: true, // Automatically parses the JSON string in the response
   };
 
-  return requestPromise(options)
-    .then((data)=> {
-        if (data.error !== undefined) {
-          ErrorPannel.show(data.error);
-          return;
-        }
-        $.each(data, (index, val) => {
-            if (index === 'char_name') {
-              document.title = `${val} - CharSheet.su`;
-            }
-            if (index === 'character_sketch') {
-              $('img[class="character_sketch"]').attr('src', val).css('display', 'block');
-            }
-            if (index === 'group_chart') {
-              $('img[class="group_chart"]').attr('src', val).css('display', 'block');
-            }
-            // load editables
-
-            let a = $(`span[data-name="${index}"]`);
-            if (a !== undefined && val) {
-              a.editable('setValue', val);
-            }
-
-            // try to set dots
-            a = $(`select[name="${index}"]`);
-
-            if (a !== undefined && a.is('select')) {
-              // console.log(`Setting select  ${index} to value ${val}`);
-              a.val(val).change();
-
-              a.barrating('set', val);
-            }
-          },
-        );
-      },
-    )
-    .catch(err=>ErrorPannel.show(JSON.stringify(err)));
+  return requestPromise(options);
 }
 
-window.loadSaved = loadSaved;
+function loadSaved() {
+  return fetchSavedData()
+    .then((data)=> {
+      if (!data) {
+        ErrorPannel.show('Error fetching data: no data');
+        return;
+      }
+      if (data.error !== undefined) {
+        ErrorPannel.show(`Error fetching data: ${data.error}`);
+        return;
+      }
+      const keys = Object.keys(data);
+      keys.forEach((index)=> {
+        const val = data[index];
+        // Array.from(data).forEach((val, index)=> {
+        // $.each(data, (index, val) => {
+        if (index === 'char_name') {
+          document.title = `${val} - CharSheet.su`;
+        }
+        if (index === 'character_sketch') {
+          $('img[class="character_sketch"]').attr('src', val).css('display', 'block');
+        }
+        if (index === 'group_chart') {
+          $('img[class="group_chart"]').attr('src', val).css('display', 'block');
+        }
+        // load editables
+
+        let a = $(`span[data-name="${index}"]`);
+        if (a !== undefined && val) {
+          a.editable('setValue', val);
+        }
+
+        // try to set dots
+        a = $(`select[name="${index}"]`);
+
+        if (a !== undefined && a.is('select')) {
+        // console.log(`Setting select  ${index} to value ${val}`);
+          a.val(val).change();
+
+          a.barrating('set', val);
+        }
+      },
+      );
+    },
+    )
+    .catch(err=> ErrorPannel.show(`Error fetching data: ${err}`),
+    );
+}
+
 
 function loadUseful() {
-  if (checkDevel()) {
+  if (isDevel) {
     return Promise.resolve();
   }// do not load for development environment
 
 
   const options = {
-    uri: `${location.protocol}//${window.location.hostname}/js/useful.php`,
+    uri: `${window.location.protocol}//${window.location.hostname}/js/useful.php`,
     json: false, // Automatically parses the JSON string in the response
   };
 
@@ -468,58 +466,53 @@ function loadUseful() {
     .then((data)=> {
       $('.useful_things').html(data);
     })
-    .catch(err=>
-      alert(`Error loading useful things! ${JSON.stringify(err)}`));
+    .catch(err=> alert(`Error loading useful things! ${JSON.stringify(err)}`));
 }
 
 
 function loadAll() {
   loadingPannel.show();
   setEditableFields();
-  let promises = [];
 
-  let a = setData([sheetData.talents, sheetData.skills, sheetData.knowledges], 'abl', '.abilities');
-  promises.push(a);
+  setData([sheetData.talents, sheetData.skills, sheetData.knowledges], 'abl', '.abilities');
 
-  a = setData([sheetData.physical, sheetData.social, sheetData.mental], 'attr', '.attributes');
-  promises.push(a);
+  setData([sheetData.physical, sheetData.social, sheetData.mental], 'attr', '.attributes');
 
 
-  a = setData([sheetData.virtues], 'virtue', '.virtues');
-  promises.push(a);
+  setData([sheetData.virtues], 'virtue', '.virtues');
 
-  a = loadProps(sheetData.numina, 'numina', 'numina', '.numina');
-  promises.push(a);
+  loadProps(sheetData.numina, 'numina', 'numina', '.numina');
 
-  a = loadProps(sheetData.backgrounds, 'background', 'background', '.backgrounds');
-  promises.push(a);
+  loadProps(sheetData.backgrounds, 'background', 'background', '.backgrounds');
 
-  a = loadTraits();
-  promises.push(a);
+  loadTraits();
 
-  a = loadProps(sheetData.merits, 'merit', 'merit', '.merits', 7);
-  promises.push(a);
+  const meritsFormatted = Object.keys(sheetData.merits).reduce((res, type)=>{
+    res.push('--');
+    res.push(`${capitalizeFirstLetter(type)}:`);
+    res = res.concat(sheetData.merits[type]);
+    return res;
+  }, []);
+  loadProps(meritsFormatted, 'merit', 'merit', '.merits', 7);
 
-  a = loadProps(sheetData.flaws, 'flaw', 'flaw', '.flaws', 7);
-  promises.push(a);
+  const flawsFormatted = Object.keys(sheetData.flaws).reduce((res, type)=>{
+    res.push('--');
+    res.push(`${capitalizeFirstLetter(type)}:`);
+    res = res.concat(sheetData.flaws[type]);
+    return res;
+  }, []);
+  loadProps(flawsFormatted, 'flaw', 'flaw', '.flaws', 7);
 
-  a = loadCustomProps();
-  promises.push(a);
+  loadCustomProps();
 
 
-  // when all settings are loaded, we load charsheet data:
-  Promise.all(promises).then(() => {
-    promises = [];
-    a = loadSaved();
-    promises.push(a);
-    loadUseful();// load bottom panel
+  loadUseful();// load bottom panel
 
-    Promise.all(promises).then(() => {
-      // when everything is loaded, we display it
-      setDotsFields();
-      loadingPannel.hide();
-      $('.list-align').css('display', 'block');
-    });
+  loadSaved().then(() => {
+    // when everything is loaded, we display it
+    setDotsFields();
+    $('.list-align').css('display', 'block');
+    loadingPannel.hide();
   });
 }
 
@@ -539,8 +532,12 @@ function showDots(container) {
     if (a.attr('class') !== 'br-widget') {
       $(this).parent().css('display', 'inline-block');
       $(this).parent().barrating('show', {
-        wrapperClass: 'br-wrapper-f',
-        showSelectedRating: false,
+        theme: 'wod-dots',
+        silent: true,
+        validate: barratingValidator,
+        allowEmpty: true,
+        deselectable: true,
+        showSelectedRating: false, // append a div with a rating to the widget?
         onSelect(value, text) {
           sendDots($(this).parent().attr('name'), value);
         },
@@ -595,6 +592,8 @@ function changeMode(mode) {
 }
 
 window.changeMode = changeMode;
+window.sendDots = sendDots;
+window.loadSaved = loadSaved;
 
 $(document).ready(() => {
   loadAll();
